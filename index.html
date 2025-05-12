@@ -1,0 +1,214 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jogo do Mistério em Família</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      background: linear-gradient(to bottom, #fefcbf, #fed7aa);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-family: Arial, sans-serif;
+    }
+    .option-label {
+      transition: background-color 0.3s;
+    }
+    .option-label:hover {
+      background-color: #fef08a;
+    }
+    .correct {
+      background-color: #d9f99d !important;
+    }
+    .incorrect {
+      background-color: #fecaca !important;
+    }
+  </style>
+</head>
+<body class="flex items-center justify-center p-4">
+  <div id="game-container" class="bg-white rounded-2xl shadow-xl p-6 max-w-md w-full">
+    <!-- Start Screen -->
+    <div id="start-screen" class="text-center">
+      <h1 class="text-2xl font-bold text-orange-600 mb-4">Jogo do Mistério em Família</h1>
+      <p class="text-gray-700 mb-4">Você está preparado?</p>
+      <p class="text-gray-600 mb-6">Cada pergunta traz uma palavra da mensagem final. Junte todas e desvende o mistério! 👀</p>
+      <button onclick="startGame()" class="bg-orange-500 text-white px-6 py-2 rounded-full hover:bg-orange-600 transition">Começar!</button>
+    </div>
+
+    <!-- Question Screen -->
+    <div id="question-screen" class="hidden">
+      <h2 id="question-number" class="text-xl font-semibold text-orange-600 mb-4"></h2>
+      <p id="question-text" class="text-gray-700 mb-6"></p>
+      <div id="options" class="space-y-3"></div>
+      <p id="feedback" class="mt-4 text-sm hidden"></p>
+      <button id="next-btn" onclick="nextQuestion()" class="bg-orange-500 text-white px-6 py-2 rounded-full mt-6 w-full hover:bg-orange-600 transition" disabled>Próxima</button>
+    </div>
+
+    <!-- Final Screen -->
+    <div id="final-screen" class="hidden text-center">
+      <h2 class="text-2xl font-bold text-orange-600 mb-4">🎉 Parabéns!!</h2>
+      <p class="text-gray-700 mb-4">Vocês foram promovidos a...</p>
+      <ul id="final-words" class="text-gray-700 mb-6 text-left"></ul>
+      <p class="text-gray-700 mb-4 font-semibold">Nossa família cresceu!</p>
+      <p class="text-gray-600 mb-6">Um novo capítulo começa na nossa história — um capítulo feito de amor, descobertas e de um coraçãozinho que já bate forte por aqui.</p>
+      <p class="text-2xl font-bold text-orange-600 mb-4">👶💛 Sim… estamos grávidos!</p>
+      <p class="text-gray-600">E esse bebê já tem a sorte de chegar cercado por pessoas tão incríveis como vocês.</p>
+    </div>
+  </div>
+
+  <script>
+    const questions = [
+      {
+        question: "Qual dessas palavras é mais usada em comemorações felizes?",
+        options: ["Adeus", "Socorro", "Parabéns", "Paciência"],
+        correct: 2,
+        word: "Parabéns"
+      },
+      {
+        question: "Quando alguém recebe um novo papel importante na vida, dizemos que foi:",
+        options: ["Reprovado", "Promovido", "Afastado", "Surpreendido"],
+        correct: 1,
+        word: "Promovidos"
+      },
+      {
+        question: "Em muitas famílias, quem costuma contar histórias e dar conselhos sábios?",
+        options: ["Vizinhos", "Irmãos mais velhos", "Avós", "Animais de estimação"],
+        correct: 2,
+        word: "Vovô e Vovó"
+      },
+      {
+        question: "Quem são aquelas pessoas que, mesmo não sendo seus pais, vivem mimando, presenteando e fazendo bagunça com você?",
+        options: ["Titio e Titia", "Professores", "Colegas de trabalho", "Amigos do colégio"],
+        correct: 0,
+        word: "Titio e Titia"
+      },
+      {
+        question: "Quem geralmente corre pela casa, derruba as coisas e dá os abraços mais fofos?",
+        options: ["Primos adultos", "Priminhos e Priminhas", "Tios", "Avôs"],
+        correct: 1,
+        word: "Priminho e Priminha"
+      }
+    ];
+
+    let currentQuestion = 0;
+    let selectedAnswer = null;
+    let words = [];
+
+    function startGame() {
+      document.getElementById('start-screen').classList.add('hidden');
+      document.getElementById('question-screen').classList.remove('hidden');
+      loadQuestion();
+    }
+
+    function loadQuestion() {
+      const q = questions[currentQuestion];
+      document.getElementById('question-number').textContent = `Pergunta ${currentQuestion + 1}`;
+      document.getElementById('question-text').textContent = q.question;
+      const optionsDiv = document.getElementById('options');
+      optionsDiv.innerHTML = '';
+      q.options.forEach((option, index) => {
+        const label = document.createElement('label');
+        label.className = 'option-label block bg-gray-100 p-3 rounded-lg cursor-pointer';
+        label.innerHTML = `
+          <input type="radio" name="option" value="${index}" class="mr-2" onchange="selectAnswer(${index})">
+          ${option}
+        `;
+        optionsDiv.appendChild(label);
+      });
+      document.getElementById('next-btn').disabled = true;
+      document.getElementById('feedback').classList.add('hidden');
+      selectedAnswer = null;
+    }
+
+    function selectAnswer(index) {
+      selectedAnswer = index;
+      const feedback = document.getElementById('feedback');
+      const options = document.getElementsByName('option');
+      options.forEach((input, i) => {
+        const label = input.parentElement;
+        if (i === index) {
+          label.classList.add(index === questions[currentQuestion].correct ? 'correct' : 'incorrect');
+        } else {
+          label.classList.remove('correct', 'incorrect');
+        }
+      });
+      feedback.classList.remove('hidden');
+      if (index === questions[currentQuestion].correct) {
+        feedback.textContent = `Correto! Palavra: ${questions[currentQuestion].word}`;
+        feedback.classList.add('text-green-600');
+        feedback.classList.remove('text-red-600');
+      } else {
+        feedback.textContent = `Ops! A resposta certa era: ${questions[currentQuestion].options[questions[currentQuestion].correct]}`;
+        feedback.classList.add('text-red-600');
+        feedback.classList.remove('text-green-600');
+      }
+      document.getElementById('next-btn').disabled = false;
+    }
+
+    function nextQuestion() {
+      if (selectedAnswer === questions[currentQuestion].correct) {
+        words.push(questions[currentQuestion].word);
+      }
+      currentQuestion++;
+      if (currentQuestion < questions.length) {
+        loadQuestion();
+      } else {
+        showFinalScreen();
+      }
+    }
+
+    function showFinalScreen() {
+      document.getElementById('question-screen').classList.add('hidden');
+      document.getElementById('final-screen').classList.remove('hidden');
+      const finalWords = document.getElementById('final-words');
+      words.forEach(word => {
+        const li = document.createElement('li');
+        li.textContent = `➡️ ${word}`;
+        finalWords.appendChild(li);
+      });
+    }
+  </script>
+</body>
+</html>
